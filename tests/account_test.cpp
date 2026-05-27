@@ -41,4 +41,5 @@ TEST(Account, UnlockDisablesBalanceChange) {
 
     account.Unlock();
     EXPECT_THROW(account.ChangeBalance(10), std::runtime_error);
-    E
+    EXPECT_EQ(account.GetBalance(), 125);
+}
