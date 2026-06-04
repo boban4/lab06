@@ -9,95 +9,64 @@ permissions:
   contents: write
 
 jobs:
-
-  release-linux:
+  linux:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y cmake g++ rpm
-
-      - name: Configure
-        run: cmake -S . -B build -DBUILD_TESTS=OFF -DCMAKE_BUILD_TYPE=Release
-
-      - name: Build
-        run: cmake --build build
-
-      - name: Package
-        working-directory: build
+      - uses: actions/checkout@v6
+      - name: deps_install
+        run: sudo apt update && sudo apt install -y dpkg-dev rpm
+      - name: project_configure
+        run: cmake -B build -D CMAKE_BUILD_TYPE=Release
+      - name: solver_build
+        run: cmake --build build --config Release
+      - name: solver_pack
         run: |
+          cd build
           cpack -G DEB
           cpack -G RPM
-          cpack -G TGZ
           cpack -G ZIP
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: linux-packages
-          path: build/*.{deb,rpm,tar.gz,zip}
-
-  release-macos:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install dependencies
-        run: brew install cmake
-
-      - name: Configure
-        run: cmake -S . -B build -DBUILD_TESTS=OFF -DCMAKE_BUILD_TYPE=Release
-
-      - name: Build
-        run: cmake --build build
-
-      - name: Package (DragNDrop)
-        working-directory: build
-        run: cpack -G DragNDrop
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: macos-packages
-          path: build/*.dmg
-
-  release-windows:
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Configure
-        run: cmake -S . -B build -DBUILD_TESTS=OFF -DCMAKE_BUILD_TYPE=Release
-
-      - name: Build
-        run: cmake --build build --config Release
-
-      - name: Package (WIX)
-        working-directory: build
-        run: cpack -G WIX
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows-packages
-          path: build/*.msi
-
-  create-release:
-    needs: [release-linux, release-macos, release-windows]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/download-artifact@v4
-
-      - name: Create Release and Upload Assets
-        uses: softprops/action-gh-release@v1
+          cpack -G TGZ
+      - name: files_upload
+        uses: softprops/action-gh-release@v3
         with:
           files: |
-            linux-packages/*.deb
-            linux-packages/*.rpm
-            linux-packages/*.tar.gz
-            linux-packages/*.zip
-            macos-packages/*.dmg
-            windows-packages/*.msi
+            build/*.deb
+            build/*.rpm
+            build/*.zip
+            build/*.tar.gz
+
+  win32:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: project_configure
+        run: cmake -B build -D CMAKE_BUILD_TYPE=Release
+      - name: solver_build
+        run: cmake --build build --config Release
+      - name: solver_pack
+        run: |
+          cd build
+          cpack -G WIX
+      - name: files_upload
+        uses: softprops/action-gh-release@v3
+        with:
+          files: |
+            build/*.msi
+
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: project_configure
+        run: cmake -B build -D CMAKE_BUILD_TYPE=Release
+      - name: solver_build
+        run: cmake --build build --config Release
+      - name: solver_pack
+        run: |
+          cd build
+          cpack -G DragNDrop
+      - name: files_upload
+        uses: softprops/action-gh-release@v3
+        with:
+          files: |
+            build/*.dmg
