@@ -9,14 +9,14 @@ permissions:
   contents: write
 
 jobs:
-  release:
-    runs-on: ubuntu-latest
 
+  release-linux:
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
       - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y cmake g++ rpm libgtest-dev
+        run: sudo apt-get update && sudo apt-get install -y cmake g++ rpm
 
       - name: Configure
         run: cmake -S . -B build -DBUILD_TESTS=OFF -DCMAKE_BUILD_TYPE=Release
@@ -32,11 +32,72 @@ jobs:
           cpack -G TGZ
           cpack -G ZIP
 
-      - name: Publish release
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-packages
+          path: build/*.{deb,rpm,tar.gz,zip}
+
+  release-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: brew install cmake
+
+      - name: Configure
+        run: cmake -S . -B build -DBUILD_TESTS=OFF -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Package (DragNDrop)
+        working-directory: build
+        run: cpack -G DragNDrop
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-packages
+          path: build/*.dmg
+
+  release-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure
+        run: cmake -S . -B build -DBUILD_TESTS=OFF -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Package (WIX)
+        working-directory: build
+        run: cpack -G WIX
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-packages
+          path: build/*.msi
+
+  create-release:
+    needs: [release-linux, release-macos, release-windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+
+      - name: Create Release and Upload Assets
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            build/*.deb
-            build/*.rpm
-            build/*.tar.gz
-            build/*.zip
+            linux-packages/*.deb
+            linux-packages/*.rpm
+            linux-packages/*.tar.gz
+            linux-packages/*.zip
+            macos-packages/*.dmg
+            windows-packages/*.msi
